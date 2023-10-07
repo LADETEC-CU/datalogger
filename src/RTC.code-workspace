@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../../../../LADETEC/RTC"
+		},
+		{
+			"name": "Test DS3231",
+			"path": ".."
+		}
+	],
+	"settings": {}
+}
