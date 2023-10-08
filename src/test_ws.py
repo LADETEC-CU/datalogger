@@ -24,6 +24,13 @@ data = {
 }
 get_files_json = json.dumps(data)
 
+# =========  Delete files =========
+data = {
+    "cmd": "rm_file",
+    'filename': '/logs/07102023.csv'
+}
+rm_file_json = json.dumps(data)
+
 async def send_message(websocket, msg):
     while True:
         await websocket.send(msg)
@@ -42,6 +49,8 @@ async def connect_websocket():
         await websocket.send(set_time_json)
         # Get files
         await websocket.send(get_files_json)
+        # Delete file
+        await websocket.send(rm_file_json)
         
         # Get time loop
         send_task = asyncio.create_task(send_message(websocket, get_time_json))

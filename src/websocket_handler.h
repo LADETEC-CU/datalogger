@@ -5,6 +5,21 @@
 #include "ArduinoJson.h"
 #include "FileHandling.h"
 
+void returnFileListing(AsyncWebSocketClient *client, DynamicJsonDocument *doc)
+{
+
+    listDir(SPIFFS, "/logs", 1, doc);
+
+    size_t length = measureJson((*doc));
+    DEBUG_PRINT("Final doc length: %d\n", length);
+
+    AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(length); //  creates a buffer (len + 1) for you.
+    serializeJson((*doc), (char *)buffer->get(), length);
+    DEBUG_PRINTLN((char *)buffer->get());
+
+    client->text(buffer);
+}
+
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
 {
     if (type == WS_EVT_CONNECT)
@@ -66,7 +81,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
                     {
                         DEBUG_PRINTLN(cmd);
                     }
-                    // Get time
+                    // --------------- Get time ---------------
                     result = strcmp("get_time", cmd);
 
                     if (result == 0)
@@ -77,7 +92,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
                         strcpy(buffer, "DD MMM YYYY hh:mm:ss");
                         client->text(now.toString(buffer));
                     }
-                    // Set time
+                    // --------------- Set time ---------------
                     result = strcmp("set_time", cmd);
 
                     if (result == 0)
@@ -90,26 +105,41 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
                         }
                         else
                         {
-                            client->text("Please, for the set_time command, provide 'date' and 'time' keys(i.e.\n'date': 'Apr 16 2020',\n'time': '18:34:56') ");
+                            client->text("Please, for the set_time command, provide 'date' and 'time' keys\
+                            (i.e.\n'date': 'Apr 16 2020',\n'time': '18:34:56') ");
                         }
                     }
-                    // Get files
+                    // --------------- Get files ---------------
                     result = strcmp("get_files", cmd);
 
                     if (result == 0)
                     {
+
                         DynamicJsonDocument doc(1024);
+                        returnFileListing(client, &doc);
+                    }
+                    // --------------- Delete file ---------------
+                    result = strcmp("rm_file", cmd);
 
-                        listDir(SPIFFS, "/logs", 1, &doc);
-
-                        size_t length = measureJson(doc);
-                        DEBUG_PRINT("Final doc length: %d\n", length);
-
-                        AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(length); //  creates a buffer (len + 1) for you.
-                        serializeJson(doc, (char *)buffer->get(), length);
-                        DEBUG_PRINTLN((char *)buffer->get());
-
-                        client->text(buffer);
+                    if (result == 0)
+                    {
+                        if (doc.containsKey("filename"))
+                        {
+                            const char *filename = doc["filename"];
+                            DynamicJsonDocument doc(1024);
+                            // Delete the file
+                            if (!deleteFile(SPIFFS, filename))
+                            {
+                                doc["error"]["msg"] = "Error deleting file!";
+                                doc["error"]["filename"] = filename;
+                            }
+                            returnFileListing(client, &doc);
+                        }
+                        else
+                        {
+                            client->text("Please, for the rm_file command, provide 'filename' keys\
+                            (i.e. 'filename': '/logs/07102023.csv'");
+                        }
                     }
                 }
                 else

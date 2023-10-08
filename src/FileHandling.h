@@ -90,16 +90,18 @@ void appendFile(fs::FS &fs, const char *path, const char *message)
     }
 }
 
-void deleteFile(fs::FS &fs, const char *path)
+bool deleteFile(fs::FS &fs, const char *path)
 {
     DEBUG_PRINT("Deleting file: %s\r\n", path);
 
     if (fs.remove(path))
     {
         DEBUG_PRINTLN("− file deleted");
+        return true;
     }
     else
     {
         DEBUG_PRINTLN("− delete failed");
+        return false;
     }
 }
