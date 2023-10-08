@@ -105,3 +105,89 @@ bool deleteFile(fs::FS &fs, const char *path)
         return false;
     }
 }
+
+void loadConfigFile()
+{
+    File configFile = SPIFFS.open("/configs.json", "r");
+    if (!configFile)
+    {
+        DEBUG_PRINTLN("Failed to open config file");
+        return;
+    }
+
+    size_t size = configFile.size();
+    if (size > 1024)
+    {
+        DEBUG_PRINTLN("Config file size is too large");
+        return;
+    }
+
+    std::unique_ptr<char[]> buf(new char[size]);
+    configFile.readBytes(buf.get(), size);
+
+    DynamicJsonDocument doc(1024);
+    auto error = deserializeJson(doc, buf.get());
+    if (error)
+    {
+        DEBUG_PRINTLN("Failed to parse config file");
+        return;
+    }
+
+    interval = doc["interval"];
+    Serial.print("Read interval from config file: ");
+    DEBUG_PRINTLN(interval);
+
+    configFile.close();
+}
+
+bool updateConfigFile(int newInterval)
+{
+    DynamicJsonDocument doc(1024);
+
+    File configFile = SPIFFS.open("/configs.json", "r");
+    if (!configFile)
+    {
+        DEBUG_PRINTLN("Failed to open config file");
+        return false;
+    }
+
+    size_t size = configFile.size();
+    if (size > 1024)
+    {
+        DEBUG_PRINTLN("Config file size is too large");
+        configFile.close();
+        return false;
+    }
+
+    std::unique_ptr<char[]> buf(new char[size]);
+    configFile.readBytes(buf.get(), size);
+
+    auto error = deserializeJson(doc, buf.get());
+    if (error)
+    {
+        DEBUG_PRINTLN("Failed to parse config file");
+        configFile.close();
+        return false;
+    }
+
+    configFile.close();
+
+    doc["interval"] = newInterval;
+
+    configFile = SPIFFS.open("/configs.json", "w");
+    if (!configFile)
+    {
+        DEBUG_PRINTLN("Failed to open config file for writing");
+        return false;
+    }
+
+    if (serializeJson(doc, configFile) == 0)
+    {
+        DEBUG_PRINTLN("Failed to write to config file");
+    }
+
+    configFile.close();
+
+    DEBUG_PRINTLN("Config file updated successfully");
+    return true;
+}

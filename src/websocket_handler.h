@@ -5,21 +5,6 @@
 #include "ArduinoJson.h"
 #include "FileHandling.h"
 
-void returnFileListing(AsyncWebSocketClient *client, DynamicJsonDocument *doc)
-{
-
-    listDir(SPIFFS, "/logs", 1, doc);
-
-    size_t length = measureJson((*doc));
-    DEBUG_PRINT("Final doc length: %d\n", length);
-
-    AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(length); //  creates a buffer (len + 1) for you.
-    serializeJson((*doc), (char *)buffer->get(), length);
-    DEBUG_PRINTLN((char *)buffer->get());
-
-    client->text(buffer);
-}
-
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
 {
     if (type == WS_EVT_CONNECT)
@@ -55,13 +40,15 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
             {
                 data[info->len] = '\0';
 
-                if (DEBUG)
-                {
-                    DEBUG_PRINT("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT) ? "text" : "binary", info->len);
-                    DEBUG_PRINTLN((char *)data);
-                }
-                DynamicJsonDocument doc(1024);
+                DEBUG_PRINT("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT) ? "text" : "binary", info->len);
+                DEBUG_PRINTLN((char *)data);
 
+                // Create JSON request object
+                DynamicJsonDocument doc(1024);
+                // Create JSON response object
+                DynamicJsonDocument responseDoc(1024);
+
+                // Parse request
                 DeserializationError error = deserializeJson(doc, (char *)data);
                 if (error)
                 {
@@ -72,80 +59,105 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
                     }
                     return;
                 }
+
+                // We must receive always a command
                 if (doc.containsKey("cmd"))
                 {
-                    int result; // For string comparisons
-
                     const char *cmd = doc["cmd"];
-                    if (DEBUG)
-                    {
-                        DEBUG_PRINTLN(cmd);
-                    }
-                    // --------------- Get time ---------------
-                    result = strcmp("get_time", cmd);
+                    DEBUG_PRINT("Command: %s\n", cmd);
 
-                    if (result == 0)
+                    // ------------------------------- Get time ----------------------------
+                    if (strcmp("get_time", cmd) == 0)
                     {
-
                         char buffer[21];
                         DateTime now = rtc.now();
                         strcpy(buffer, "DD MMM YYYY hh:mm:ss");
-                        client->text(now.toString(buffer));
+                        now.toString(buffer);
+                        responseDoc["ack"]["datetime"] = buffer;
                     }
-                    // --------------- Set time ---------------
-                    result = strcmp("set_time", cmd);
 
-                    if (result == 0)
+                    // ------------------------------- Set time ----------------------------
+                    else if (strcmp("set_time", cmd) == 0)
                     {
                         if (doc.containsKey("date") && doc.containsKey("time"))
                         {
                             const char *date = doc["date"];
                             const char *time = doc["time"];
                             rtc.adjust(DateTime(date, time));
+                            responseDoc["ack"] = "Time updated successfully!";
                         }
                         else
                         {
-                            client->text("Please, for the set_time command, provide 'date' and 'time' keys\
-                            (i.e.\n'date': 'Apr 16 2020',\n'time': '18:34:56') ");
+                            responseDoc["error"] = "Please provide 'date' and 'time' keys for the set_time command";
                         }
                     }
-                    // --------------- Get files ---------------
-                    result = strcmp("get_files", cmd);
 
-                    if (result == 0)
+                    // --------------------------------- Get files --------------------------
+                    else if (strcmp("get_files", cmd) == 0)
                     {
-
-                        DynamicJsonDocument doc(1024);
-                        returnFileListing(client, &doc);
+                        DynamicJsonDocument filesDoc(1024);
+                        listDir(SPIFFS, "/logs", 1, &filesDoc);
+                        responseDoc["ack"]["files"] = filesDoc;
                     }
-                    // --------------- Delete file ---------------
-                    result = strcmp("rm_file", cmd);
 
-                    if (result == 0)
+                    // -------------------------------- Delete file --------------------------
+                    else if (strcmp("rm_file", cmd) == 0)
                     {
                         if (doc.containsKey("filename"))
                         {
                             const char *filename = doc["filename"];
-                            DynamicJsonDocument doc(1024);
                             // Delete the file
                             if (!deleteFile(SPIFFS, filename))
                             {
-                                doc["error"]["msg"] = "Error deleting file!";
-                                doc["error"]["filename"] = filename;
+                                responseDoc["error"] = "Error deleting file!";
+                                responseDoc["filename"] = filename;
                             }
-                            returnFileListing(client, &doc);
+                            else
+                            {
+                                DynamicJsonDocument filesDoc(1024);
+                                listDir(SPIFFS, "/logs", 1, &filesDoc);
+                                responseDoc["ack"]["files"] = filesDoc;
+                            }
                         }
                         else
                         {
-                            client->text("Please, for the rm_file command, provide 'filename' keys\
-                            (i.e. 'filename': '/logs/07102023.csv'");
+                            responseDoc["error"] = "Please provide 'filename' key for the rm_file command";
+                        }
+                    }
+
+                    // ------------------------------- Set interval ----------------------------
+                    else if (strcmp("set_interval", cmd) == 0)
+                    {
+                        if (doc.containsKey("interval"))
+                        {
+                            interval = doc["interval"];
+                            if (updateConfigFile(interval))
+                            {
+                                responseDoc["ack"] = "Interval updated successfully!";
+                            }
+                            else
+                            {
+                                responseDoc["error"] = "Error updating interval";
+                            }
+                        }
+                        else
+                        {
+                            responseDoc["error"] = "Please provide 'interval' key for the set_interval command";
                         }
                     }
                 }
                 else
                 {
-                    client->text("Please provide a command using the 'cmd' key");
+                    responseDoc["error"] = "Please provide a command using the 'cmd' key";
                 }
+
+                // Convert response to JSON string
+                String responseString;
+                serializeJson(responseDoc, responseString);
+                DEBUG_PRINTLN(responseString);
+
+                // Send JSON response to client
+                client->text(responseString);
             }
         }
     }

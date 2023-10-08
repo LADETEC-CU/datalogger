@@ -13,6 +13,7 @@
 #include "websocket_handler.h"
 
 unsigned int start = 0;
+int interval = 10;
 RTC_DS3231 rtc;
 
 // Create AsyncWebServer object on port 80
@@ -39,20 +40,24 @@ void setup()
     Serial.begin(115200);
   }
 
+  // ------------------------- RTC ------------------------------------
   if (!rtc.begin())
   {
     DEBUG_PRINTLN("Could not find RTC! Check circuit.");
     while (1)
       ;
   }
+  DEBUG_PRINTLN("RTC CLOCK initiated correctly");
+
+  // ----------------------- SD card ---------------------------------
   if (!SPIFFS.begin(false))
   {
     DEBUG_PRINTLN("SPIFFS Mount Failed");
     return;
   }
-  // rtc.adjust(DateTime(__DATE__, __TIME__));
-  DEBUG_PRINTLN("RTC CLOCK initiated correctly");
+  loadConfigFile();
 
+  // -------------------- Webserver -------------------------------
   initWiFi();
 
   // WebSocket handler
