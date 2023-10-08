@@ -3,30 +3,31 @@
 #include <ESPAsyncWebServer.h>
 #include "AsyncJson.h"
 #include "ArduinoJson.h"
+#include "FileHandling.h"
 
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
 {
     if (type == WS_EVT_CONNECT)
     {
         // client connected
-        Serial.printf("ws[%s][%u] connect\n", server->url(), client->id());
+        DEBUG_PRINT("ws[%s][%u] connect\n", server->url(), client->id());
         client->printf("Hello Client %u :)", client->id());
         client->ping();
     }
     else if (type == WS_EVT_DISCONNECT)
     {
         // client disconnected
-        Serial.printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
+        DEBUG_PRINT("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
     }
     else if (type == WS_EVT_ERROR)
     {
         // error was received from the other end
-        Serial.printf("ws[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t *)arg), (char *)data);
+        DEBUG_PRINT("ws[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t *)arg), (char *)data);
     }
     else if (type == WS_EVT_PONG)
     {
         // pong message was received (in response to a ping request maybe)
-        Serial.printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len) ? (char *)data : "");
+        DEBUG_PRINT("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len) ? (char *)data : "");
     }
     else if (type == WS_EVT_DATA)
     {
@@ -41,8 +42,8 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 
                 if (DEBUG)
                 {
-                    Serial.printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT) ? "text" : "binary", info->len);
-                    Serial.println((char *)data);
+                    DEBUG_PRINT("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT) ? "text" : "binary", info->len);
+                    DEBUG_PRINTLN((char *)data);
                 }
                 DynamicJsonDocument doc(1024);
 
@@ -51,8 +52,8 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
                 {
                     if (DEBUG)
                     {
-                        Serial.print(F("deserializeJson() failed: "));
-                        Serial.println(error.c_str());
+                        DEBUG_PRINT("deserializeJson() failed: ");
+                        DEBUG_PRINTLN(error.c_str());
                     }
                     return;
                 }
@@ -63,7 +64,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
                     const char *cmd = doc["cmd"];
                     if (DEBUG)
                     {
-                        Serial.println(cmd);
+                        DEBUG_PRINTLN(cmd);
                     }
                     // Get time
                     result = strcmp("get_time", cmd);
@@ -91,6 +92,13 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
                         {
                             client->text("Please, for the set_time command, provide 'date' and 'time' keys(i.e.\n'date': 'Apr 16 2020',\n'time': '18:34:56') ");
                         }
+                    }
+                    // Get files
+                    result = strcmp("get_files", cmd);
+
+                    if (result == 0)
+                    {
+                        listDir(SPIFFS, "/logs", 1);
                     }
                 }
                 else

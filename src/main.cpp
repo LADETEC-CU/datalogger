@@ -7,7 +7,6 @@
 #include <FS.h>
 #include "SPIFFS.h"
 #include "secrets.h"
-#include "FileHandling.h"
 #include "AsyncJson.h"
 #include "ArduinoJson.h"
 #include "configs.h"
@@ -30,7 +29,7 @@ void initWiFi()
     Serial.print('.');
     delay(1000);
   }
-  Serial.println(WiFi.localIP());
+  DEBUG_PRINTLN(WiFi.localIP());
 }
 
 void setup()
@@ -42,17 +41,17 @@ void setup()
 
   if (!rtc.begin())
   {
-    Serial.println("Could not find RTC! Check circuit.");
+    DEBUG_PRINTLN("Could not find RTC! Check circuit.");
     while (1)
       ;
   }
   if (!SPIFFS.begin(false))
   {
-    Serial.println("SPIFFS Mount Failed");
+    DEBUG_PRINTLN("SPIFFS Mount Failed");
     return;
   }
   // rtc.adjust(DateTime(__DATE__, __TIME__));
-  Serial.println("RTC CLOCK initiated correctly");
+  DEBUG_PRINTLN("RTC CLOCK initiated correctly");
 
   initWiFi();
 
@@ -74,6 +73,6 @@ void loop()
   //   start = millis();
   //   DateTime now = rtc.now();
   //   strcpy(buffer, "DD MMM YYYY hh:mm:ss");
-  //   Serial.println(String(now.toString(buffer)) + ", " + String(rtc.getTemperature()) + "ºC");
+  //   DEBUG_PRINTLN(String(now.toString(buffer)) + ", " + String(rtc.getTemperature()) + "ºC");
   // }
 }

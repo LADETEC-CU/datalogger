@@ -1,20 +1,23 @@
 #include <Arduino.h>
 #include <FS.h>
 #include "SPIFFS.h"
+#include "configs.h"
 
 void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
 {
-    Serial.printf("Listing directory: %s\r\n", dirname);
+    DEBUG_PRINT("Listing directory: %s\r\n", dirname);
 
     File root = fs.open(dirname);
     if (!root)
     {
-        Serial.println("− failed to open directory");
+        DEBUG_PRINTLN("− failed to open directory");
+
         return;
     }
     if (!root.isDirectory())
     {
-        Serial.println(" − not a directory");
+        DEBUG_PRINTLN(" − not a directory");
+
         return;
     }
 
@@ -23,8 +26,8 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
     {
         if (file.isDirectory())
         {
-            Serial.print("  DIR : ");
-            Serial.println(file.name());
+            DEBUG_PRINT("  DIR : ");
+            DEBUG_PRINTLN(file.name());
             if (levels)
             {
                 listDir(fs, file.name(), levels - 1);
@@ -32,10 +35,10 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
         }
         else
         {
-            Serial.print("  FILE: ");
-            Serial.print(file.name());
-            Serial.print("\tSIZE: ");
-            Serial.println(file.size());
+            DEBUG_PRINT("  FILE: ");
+            DEBUG_PRINT(file.name());
+            DEBUG_PRINT("\tSIZE: ");
+            DEBUG_PRINTLN(file.size());
         }
         file = root.openNextFile();
     }
@@ -43,84 +46,55 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
 
 void readFile(fs::FS &fs, const char *path)
 {
-    Serial.printf("Reading file: %s\r\n", path);
+    DEBUG_PRINT("Reading file: %s\r\n", path);
 
     File file = fs.open(path);
     if (!file || file.isDirectory())
     {
-        Serial.println("− failed to open file for reading");
+        DEBUG_PRINTLN("− failed to open file for reading");
+
         return;
     }
 
-    Serial.println("− read from file:");
+    DEBUG_PRINTLN("− read from file:");
+
     while (file.available())
     {
         Serial.write(file.read());
     }
 }
 
-void writeFile(fs::FS &fs, const char *path, const char *message)
-{
-    Serial.printf("Writing file: %s\r\n", path);
-
-    File file = fs.open(path, FILE_WRITE);
-    if (!file)
-    {
-        Serial.println("− failed to open file for writing");
-        return;
-    }
-    if (file.print(message))
-    {
-        Serial.println("− file written");
-    }
-    else
-    {
-        Serial.println("− frite failed");
-    }
-}
-
 void appendFile(fs::FS &fs, const char *path, const char *message)
 {
-    Serial.printf("Appending to file: %s\r\n", path);
+    DEBUG_PRINT("Appending to file: %s\r\n", path);
 
     File file = fs.open(path, FILE_APPEND);
     if (!file)
     {
-        Serial.println("− failed to open file for appending");
+        DEBUG_PRINTLN("− failed to open file for appending");
+
         return;
     }
     if (file.print(message))
     {
-        Serial.println("− message appended");
+        DEBUG_PRINTLN("− message appended");
     }
     else
     {
-        Serial.println("− append failed");
-    }
-}
-
-void renameFile(fs::FS &fs, const char *path1, const char *path2)
-{
-    Serial.printf("Renaming file %s to %s\r\n", path1, path2);
-    if (fs.rename(path1, path2))
-    {
-        Serial.println("− file renamed");
-    }
-    else
-    {
-        Serial.println("− rename failed");
+        DEBUG_PRINTLN("− append failed");
     }
 }
 
 void deleteFile(fs::FS &fs, const char *path)
 {
-    Serial.printf("Deleting file: %s\r\n", path);
+    DEBUG_PRINT("Deleting file: %s\r\n", path);
+
     if (fs.remove(path))
     {
-        Serial.println("− file deleted");
+        DEBUG_PRINTLN("− file deleted");
     }
     else
     {
-        Serial.println("− delete failed");
+        DEBUG_PRINTLN("− delete failed");
     }
 }
