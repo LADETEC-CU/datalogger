@@ -133,10 +133,10 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
             }
           }
         }
-      }
       else
       {
         client->text("Please provide a command using the 'cmd' key");
+      }
       }
     }
   }

@@ -34,7 +34,8 @@ async def connect_websocket():
     async with websockets.connect(uri) as websocket:
         print("Connected to WebSocket")
         # Set time
-        send_message(websocket, set_time_json)
+        await websocket.send(set_time_json)
+        
         # Get time loop
         send_task = asyncio.create_task(send_message(websocket, get_time_json))
         receive_task = asyncio.create_task(receive_message(websocket))
