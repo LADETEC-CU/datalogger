@@ -3,9 +3,9 @@ import asyncio
 import time
 import json
 
-# =========  Get time =========
+# =========  Get status =========
 data = {
-    "cmd": "get_time"
+    "cmd": "get_status"
 }
 
 get_time_json = json.dumps(data)
@@ -34,7 +34,7 @@ rm_file_json = json.dumps(data)
 # =========  Set interval =========
 data = {
     "cmd": "set_interval",
-    'interval': 20
+    'interval': 30
 }
 set_interval_json = json.dumps(data)
 

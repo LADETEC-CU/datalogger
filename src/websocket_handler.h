@@ -66,14 +66,20 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
                     const char *cmd = doc["cmd"];
                     DEBUG_PRINT("Command: %s\n", cmd);
 
-                    // ------------------------------- Get time ----------------------------
-                    if (strcmp("get_time", cmd) == 0)
+                    // ------------------------------- Get status ----------------------------
+                    if (strcmp("get_status", cmd) == 0)
                     {
+                        // Datetime
                         char buffer[21];
                         DateTime now = rtc.now();
                         strcpy(buffer, "DD MMM YYYY hh:mm:ss");
                         now.toString(buffer);
                         responseDoc["ack"]["datetime"] = buffer;
+                        // Interval
+                        responseDoc["ack"]["interval"] = interval;
+                        // TODO Modbus status
+                        // TODO SD card status
+                        // TODO other status
                     }
 
                     // ------------------------------- Set time ----------------------------
