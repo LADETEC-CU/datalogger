@@ -12,6 +12,8 @@
 #include "AsyncJson.h"
 #include "ArduinoJson.h"
 
+#define DEBUG true
+
 unsigned int start = 0;
 
 RTC_DS3231 rtc;
@@ -75,84 +77,69 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
     if (info->final && info->index == 0 && info->len == len)
     {
       // the whole message is in a single frame and we got all of it's data
-      Serial.printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT) ? "text" : "binary", info->len);
       if (info->opcode == WS_TEXT)
       {
-        data[len] = 0;
-        Serial.printf("%s\n", (char *)data);
-        int result = strcmp("get_time", (char *)data);
+        data[info->len] = '\0';
 
-        if (result == 0)
+        if (DEBUG)
         {
-          DateTime now = rtc.now();
-          strcpy(buffer, "DD MMM YYYY hh:mm:ss");
-          client->text(now.toString(buffer));
+          Serial.printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT) ? "text" : "binary", info->len);
+          Serial.println((char *)data);
+        }
+        DynamicJsonDocument doc(1024);
+
+        DeserializationError error = deserializeJson(doc, (char *)data);
+        if (error)
+        {
+          if (DEBUG)
+          {
+            Serial.print(F("deserializeJson() failed: "));
+            Serial.println(error.c_str());
+          }
+          return;
+        }
+        if (doc.containsKey("cmd"))
+        {
+          int result; // For string comparisons
+
+          const char *cmd = doc["cmd"];
+          if (DEBUG)
+          {
+            Serial.println(cmd);
+          }
+          // Get time
+          result = strcmp("get_time", cmd);
+
+          if (result == 0)
+          {
+            DateTime now = rtc.now();
+            strcpy(buffer, "DD MMM YYYY hh:mm:ss");
+            client->text(now.toString(buffer));
+          }
+          // Set time
+          result = strcmp("set_time", cmd);
+
+          if (result == 0)
+          {
+            if (doc.containsKey("date") && doc.containsKey("time"))
+            {
+              const char *date = doc["date"];
+              const char *time = doc["time"];
+              rtc.adjust(DateTime(date, time));
+            }
+            else
+            {
+              client->text("Please, for the set_time command, provide 'date' and 'time' keys(i.e.\n'date': 'Apr 16 2020',\n'time': '18:34:56') ");
+            }
+          }
         }
       }
       else
       {
-        for (size_t i = 0; i < info->len; i++)
-        {
-          Serial.printf("%02x ", data[i]);
-        }
-        Serial.printf("\n");
-      }
-      if (info->opcode == WS_TEXT)
-        client->text("I got your text message");
-      else
-        client->binary("I got your binary message");
-    }
-    else
-    {
-      // message is comprised of multiple frames or the frame is split into multiple packets
-      if (info->index == 0)
-      {
-        if (info->num == 0)
-          Serial.printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT) ? "text" : "binary");
-        Serial.printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
-      }
-
-      Serial.printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT) ? "text" : "binary", info->index, info->index + len);
-      if (info->message_opcode == WS_TEXT)
-      {
-        data[len] = 0;
-        Serial.printf("%s\n", (char *)data);
-      }
-      else
-      {
-        for (size_t i = 0; i < len; i++)
-        {
-          Serial.printf("%02x ", data[i]);
-        }
-        Serial.printf("\n");
-      }
-
-      if ((info->index + len) == info->len)
-      {
-        Serial.printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
-        if (info->final)
-        {
-          Serial.printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT) ? "text" : "binary");
-          if (info->message_opcode == WS_TEXT)
-            client->text("I got your text message");
-          else
-            client->binary("I got your binary message");
-        }
+        client->text("Please provide a command using the 'cmd' key");
       }
     }
   }
-}
-void onEventJson(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
-{
-
-  DynamicJsonDocument doc(1024);
-  doc["heap"] = ESP.getFreeHeap();
-  doc["ssid"] = WiFi.SSID();
-  size_t length = measureJson(doc);
-  AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(length); //  creates a buffer (len + 1) for you.
-
-  serializeJson(doc, (char *)buffer->get(), length);
-  client->text(buffer);
 }
 
 void setup()
@@ -175,12 +162,12 @@ void setup()
 
   initWiFi();
 
+  // WebSocket handler
   ws.onEvent(onEvent);
   server.addHandler(&ws);
 
   server.serveStatic("/", SPIFFS, "/www/");
   server.serveStatic("/logs/", SPIFFS, "/logs/");
-  server.on("/api/test", HTTP_ANY, testHandler);
 
   server.begin();
   start = millis();
