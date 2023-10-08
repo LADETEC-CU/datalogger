@@ -3,7 +3,7 @@
 #include "SPIFFS.h"
 #include "configs.h"
 
-void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
+void listDir(fs::FS &fs, const char *dirname, uint8_t levels, DynamicJsonDocument *doc)
 {
     DEBUG_PRINT("Listing directory: %s\r\n", dirname);
 
@@ -30,7 +30,7 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
             DEBUG_PRINTLN(file.name());
             if (levels)
             {
-                listDir(fs, file.name(), levels - 1);
+                listDir(fs, file.name(), levels - 1, doc);
             }
         }
         else
@@ -39,6 +39,11 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
             DEBUG_PRINT(file.name());
             DEBUG_PRINT("\tSIZE: ");
             DEBUG_PRINTLN(file.size());
+            // Populate Json
+            char extractedDate[9];
+            memcpy(extractedDate, file.name() + 6, 8);
+            extractedDate[8] = '\0';
+            (*doc)["files"][extractedDate] = file.size();
         }
         file = root.openNextFile();
     }

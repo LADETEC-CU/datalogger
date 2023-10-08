@@ -98,7 +98,18 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 
                     if (result == 0)
                     {
-                        listDir(SPIFFS, "/logs", 1);
+                        DynamicJsonDocument doc(1024);
+
+                        listDir(SPIFFS, "/logs", 1, &doc);
+
+                        size_t length = measureJson(doc);
+                        DEBUG_PRINT("Final doc length: %d\n", length);
+
+                        AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(length); //  creates a buffer (len + 1) for you.
+                        serializeJson(doc, (char *)buffer->get(), length);
+                        DEBUG_PRINTLN((char *)buffer->get());
+
+                        client->text(buffer);
                     }
                 }
                 else

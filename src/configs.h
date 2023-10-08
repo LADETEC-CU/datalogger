@@ -1,5 +1,6 @@
 #include "RTClib.h"
 extern RTC_DS3231 rtc;
+extern AsyncWebSocket ws;
 
 #define DEBUG true
 #define DEBUG_PRINT(...)                \
